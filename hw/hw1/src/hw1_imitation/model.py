@@ -24,7 +24,12 @@ def build_mlp(
     layers.append(nn.Linear(curr_dim, output_dim))
     return nn.Sequential(*layers)
 
-
+""" Base classes and implementations for action chunking policies.
+    The BasePolicy defines the interface for policies that predict chunks of actions given a state. 
+    The MSEPolicy implements a simple feedforward network trained with mean squared error loss, 
+    while the FlowMatchingPolicy implements a more complex flow matching approach that iteratively refines action predictions over multiple steps. 
+    The build_policy function allows for easy instantiation of either policy type based on a string identifier.
+"""
 class BasePolicy(nn.Module, metaclass=abc.ABCMeta):
     """Base class for action chunking policies."""
 
@@ -94,7 +99,7 @@ class FlowMatchingPolicy(BasePolicy):
     ) -> None:
         super().__init__(state_dim, action_dim, chunk_size)
         self.flat_action_dim = chunk_size * action_dim
-        input_dim = state_dim + self.flat_action_dim + 1
+        input_dim = state_dim + self.flat_action_dim + 1 # +1 for tau
         self.net = build_mlp(input_dim, self.flat_action_dim, hidden_dims)
 
     def _predict_velocity(
@@ -118,6 +123,7 @@ class FlowMatchingPolicy(BasePolicy):
     ) -> torch.Tensor:
         batch_size = state.shape[0]
         noise = torch.randn_like(action_chunk)
+        # tau is a random scalar between 0 and 1 for each sample in the batch, used to interpolate between the noisy action and the original action chunk.
         tau = torch.rand(
             batch_size,
             1,
