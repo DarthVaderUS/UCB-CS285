@@ -51,9 +51,9 @@ def build_mlp(
     layers = []
     in_size = input_size
     for _ in range(n_layers):
-        layers.append(nn.Linear(in_size, size))
-        layers.append(activation)
-        in_size = size
+        layers.append(nn.Linear(in_size, size)) # add a linear layer
+        layers.append(activation)  # add the activation after each hidden layer
+        in_size = size # the input size of the next layer is the output size of the previous layer
     layers.append(nn.Linear(in_size, output_size))
     layers.append(output_activation)
 

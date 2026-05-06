@@ -36,7 +36,7 @@ class MLPPolicy(nn.Module):
                 n_layers=n_layers,
                 size=layer_size,
             ).to(ptu.device)
-            parameters = self.logits_net.parameters()
+            parameters = self.logits_net.parameters() # if discrete, only the logits_net parameters are optimized
         else:
             self.mean_net = ptu.build_mlp(
                 input_size=ob_dim,
@@ -60,7 +60,10 @@ class MLPPolicy(nn.Module):
     def get_action(self, obs: np.ndarray) -> np.ndarray:
         """Takes a single observation (as a numpy array) and returns a single action (as a numpy array)."""
         # TODO: implement get_action
-        action = None
+        obs_tensor = ptu.from_numpy(obs).unsqueeze(0) # convert obs to tensor and add batch dimension
+        dist = self.forward(obs_tensor) # compute the action distribution for obs
+        action = dist.sample() # sample an action from the distribution
+        action = action.squeeze(0).cpu().numpy() # remove batch dimension and convert to numpy array
 
         return action
 
@@ -72,10 +75,15 @@ class MLPPolicy(nn.Module):
         """
         if self.discrete:
             # TODO: define the forward pass for a policy with a discrete action space.
-            pass
+            logits = self.logits_net(obs) # compute the logits for obs
+            dist = D.Categorical(logits=logits) # create a categorical distribution with the logits
         else:
             # TODO: define the forward pass for a policy with a continuous action space.
-            pass
+            mean = self.mean_net(obs)
+            std = self.logstd.exp()
+            dist = D.Normal(loc=mean, scale=std)  # create a normal distribution with mean and std
+
+        return dist
 
     def update(self, obs: np.ndarray, actions: np.ndarray, *args, **kwargs) -> dict:
         """
@@ -100,10 +108,17 @@ class MLPPolicyPG(MLPPolicy):
         advantages = ptu.from_numpy(advantages)
 
         # TODO: compute the policy gradient actor loss
-        loss = None
+        dist = self.forward(obs) # compute the action distribution for obs
+        log_prob = dist.log_prob(actions) # compute log π(a|s)
+        if not self.discrete:
+            log_prob = log_prob.sum(axis=-1) # if continuous, sum the log probs for each action dimension
+        loss = -(log_prob * advantages).mean() # PG loss 
+
 
         # TODO: perform an optimizer step
-        pass
+        self.optimizer.zero_grad() # zero the gradients before backward pass
+        loss.backward() # compute gradients
+        self.optimizer.step() # update parameters
 
         return {
             "Actor Loss": loss.item(),
