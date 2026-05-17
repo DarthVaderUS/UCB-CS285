@@ -87,13 +87,13 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         epsilon = exploration_schedule.value(step)
 
         # TODO(Section 2.4): Compute action
-        action = None
+        action = agent.get_action(observation, epsilon) # compute the action using the agent's get_action method, passing in the current observation and epsilon for exploration
         # ENDTODO
 
         next_observation, reward, done, info = env.step(action)
         next_observation = np.asarray(next_observation)
 
-        truncated = info.get("TimeLimit.truncated", False)
+        truncated = info.get("TimeLimit.truncated", False) # check if the episode was truncated due to reaching the time limit
 
         if isinstance(replay_buffer, MemoryEfficientReplayBuffer):
             # We're using the memory-efficient replay buffer,
@@ -128,13 +128,21 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         # Main DQN training loop
         if step >= config["learning_starts"]:
             # TODO(Section 2.4): Sample config["batch_size"] samples from the replay buffer
-            batch = None
+            batch = replay_buffer.sample(config["batch_size"])
             # ENDTODO
 
             batch = ptu.from_numpy(batch)
 
             # TODO(Section 2.4): Train the agent.
-            update_info = None
+            # Unpack the batch dict and pass tensors to agent.update
+            update_info = agent.update(
+                batch["observations"],
+                batch["actions"],
+                batch["rewards"],
+                batch["next_observations"],
+                batch["dones"],
+                step,
+            )
             # ENDTODO
 
             # Logging code
